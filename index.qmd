@@ -1,0 +1,95 @@
+---
+title: "Golf Swing Analysis Pipeline"
+subtitle: "End-to-end video processing: raw iPhone footage → biomechanical analysis"
+---
+
+## What This Does
+
+Takes raw golf videos (iPhone HEVC, variable frame rate) through 5 stages to produce swing-by-swing biomechanical analysis:
+
+```
+Phone upload → ingest → label_videos → swing_detection → analyze
+               (HTTPS)   (EC2 GPU)      (Lambda)         (CLI/Streamlit)
+```
+
+A 5-minute 60fps video (~19K frames) processes end-to-end in **~6 minutes** at **~$0.04/video**.
+
+## Architecture
+
+```{mermaid}
+flowchart TD
+    Phone["📱 iPhone"] -->|".MOV upload"| AppS3["S3: golf-app-storage"]
+    AppS3 -->|"S3 event"| IngestQ["SQS: golf-app-ingest"]
+    IngestQ --> Ingest["Lambda: ingest<br/>(cross-account copy)"]
+    Ingest -->|".MOV → /raw/"| S3["S3: golf-swing-data"]
+
+    S3 -->|"S3 event (.MOV/.mp4)"| LabelQ["SQS: golf-video-label"]
+    LabelQ --> EC2["EC2 g6.2xlarge (L4 GPU)<br/>worker.py polls SQS"]
+
+    EC2 -->|"NVENC transcode"| S3proc["S3: /processed/*.mp4"]
+    EC2 -->|"ViTPose-Huge"| S3kp["S3: /keypoints/*.pkl"]
+
+    S3kp -->|"S3 event (.pkl)"| DetectLambda["Lambda: swing_detection<br/>~13s signal processing"]
+    DetectLambda --> S3det["S3: /detection/*.json"]
+    DetectLambda --> DDB["DynamoDB:<br/>golf-swing-detections"]
+
+    S3det -->|"S3 event (.json)"| PostLambda["Lambda: post_processing<br/>fingers + frames"]
+    PostLambda --> S3out["S3: /fingers/, /frames/, /output/"]
+    PostLambda --> Pushover["📱 Pushover notification"]
+
+    Analyze["Lambda/CLI: analyze"] --> S3analysis["S3: /analysis/"]
+
+    style EC2 fill:#f9f,stroke:#333,stroke-width:2px
+    style DetectLambda fill:#bbf,stroke:#333
+    style PostLambda fill:#bbf,stroke:#333
+```
+
+## Modules at a Glance
+
+| Module | Runtime | What it does |
+|--------|---------|-------------|
+| `ingest/` | Lambda | Receives phone uploads, copies to pipeline S3 bucket |
+| `label_videos/` | EC2 GPU (spot) | NVENC transcode + ViTPose-Huge pose estimation |
+| `swing_detection/` | Lambda | Signal processing on keypoints → backswing/contact detection |
+| `hand_finder/` | Lambda | Detects post-swing hand raises, predicts finger count |
+| `post_processing/` | Lambda | Extracts frames, generates overlays, sends notifications |
+| `analyze/` | Lambda/CLI/Streamlit | Biomechanical comparison, SPM analysis, AI insights |
+
+## Performance Summary
+
+| Stage | Time | Hardware |
+|-------|------|----------|
+| Transcode (NVENC) | ~10s | L4 GPU hardware encoder |
+| Labeling (turbo) | ~5.5 min | 57.5 fps, torch.compile + NVDEC |
+| Swing Detection | ~13s | Lambda CPU (numpy/scipy) |
+| **End-to-end** | **~6 min** | **~$0.04/video on spot** |
+
+## GPU Hardware Utilization
+
+The L4 has three independent silicon blocks — using one doesn't steal from the others:
+
+| Block | Transcode Phase | Labeling Phase |
+|-------|----------------|----------------|
+| **NVDEC** (decode) | Decode HEVC input | Decode H.264 frames |
+| **CUDA** (compute) | Idle | RTMDet + ViTPose inference |
+| **NVENC** (encode) | Encode H.264 output | Idle |
+
+All three blocks get used across the pipeline. NVDEC does double duty — first for transcode input, then for frame decode during labeling.
+
+## Codebase
+
+```{python}
+#| echo: false
+import os, pathlib
+
+root = pathlib.Path("..").resolve()
+modules = ["ingest", "label_videos", "swing_detection", "hand_finder", "post_processing", "analyze"]
+
+for mod in modules:
+    mod_path = root / mod
+    if mod_path.exists():
+        py_files = list(mod_path.glob("*.py"))
+        test_files = list((mod_path / "tests").glob("*.py")) if (mod_path / "tests").exists() else []
+        total_lines = sum(len(f.read_text().splitlines()) for f in py_files)
+        print(f"{mod:20s}  {len(py_files)} files  {total_lines:5d} lines  {len(test_files)} tests")
+```

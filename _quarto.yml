@@ -1,0 +1,47 @@
+project:
+  type: website
+  output-dir: _site
+
+website:
+  title: "Golf Pipeline"
+  navbar:
+    left:
+      - href: index.qmd
+        text: Overview
+      - href: pipeline.qmd
+        text: Pipeline Flow
+      - href: label-videos.qmd
+        text: Label Videos
+      - href: swing-detection.qmd
+        text: Swing Detection
+      - href: analyze.qmd
+        text: Analysis
+      - href: deploy.qmd
+        text: Deploy & Costs
+      - href: data.qmd
+        text: Data Formats
+
+  sidebar:
+    style: floating
+    search: true
+
+  page-footer:
+    center: "Golf Swing Analysis Pipeline"
+
+format:
+  html:
+    theme:
+      dark:
+        - darkly
+        - custom.scss
+    toc: true
+    toc-depth: 3
+    code-fold: true
+    code-tools: true
+    highlight-style: monokai
+    mainfont: "'DM Sans', -apple-system, sans-serif"
+    monofont: "'JetBrains Mono', monospace"
+
+execute:
+  freeze: auto
+  warning: false

@@ -1,0 +1,139 @@
+---
+title: "Deploy & Costs"
+subtitle: "AMI baking, spot instances, and cost model"
+---
+
+## Deployment Architecture
+
+Two-phase deployment: **bake** (infrequent) and **deploy** (per-session).
+
+```{mermaid}
+flowchart LR
+    subgraph Bake["bake_ami.sh (rare)"]
+        B1["Launch g6.xlarge<br/>on-demand"] --> B2["Install PyTorch 2.8<br/>+ cu126"]
+        B2 --> B3["Build ffmpeg<br/>(NVENC/NVDEC)"]
+        B3 --> B4["Install mmcv-lite<br/>(4 patches)"]
+        B4 --> B5["Download model<br/>weights"]
+        B5 --> B6["torch.compile<br/>warmup"]
+        B6 --> B7["Snapshot → AMI<br/>(~30 min)"]
+    end
+
+    subgraph Deploy["deploy.sh (per session)"]
+        D1["Read AMI ID"] --> D2["Create SQS + DLQ"]
+        D2 --> D3["Configure S3→SQS<br/>triggers"]
+        D3 --> D4["Upload scripts<br/>to S3"]
+        D4 --> D5["Launch spot<br/>instance"]
+        D5 --> D6["user-data:<br/>S3 pull + start"]
+    end
+
+    Bake --> Deploy
+```
+
+**AMI bake**: Only needed when deps change (PyTorch version, mmcv, ffmpeg, model weights).
+
+**Code deploys**: Just `deploy.sh` — uploads `worker.py` and `fast_label.py` to S3. Instance pulls fresh scripts at boot via `cmp -s` (preserves inductor cache if code unchanged).
+
+## AMI Stack
+
+The custom AMI includes:
+
+| Component | Version | Notes |
+|-----------|---------|-------|
+| PyTorch | 2.8+cu126 | cu124 builds don't exist for 2.8 |
+| mmcv-lite | 2.2.0 | 4 patches for torch 2.8 compat |
+| ffmpeg | custom build | NVENC + NVDEC support |
+| ViTPose-Huge | — | ~632M params, pre-cached weights |
+| RTMDet-M | — | Person detector, pre-cached weights |
+| numpy | <2 | Required for xtcocotools |
+
+### mmcv-lite Patches
+
+Full mmcv can't be built (setuptools removed `pkg_resources`) and prebuilt wheels are ABI-incompatible with torch 2.8. mmcv-lite is pure Python but needs 4 patches:
+
+```{python}
+#| eval: false
+# Patch 1: ext_loader.py — stub namedtuple for missing _ext module
+# Patch 2: nms.py — torchvision.ops.nms fallback (RTMDet needs it)
+# Patch 3: mmpose heads/__init__.py — skip EDPoseHead import
+# Patch 4: mmengine checkpoint.py — weights_only=False for torch 2.6+
+```
+
+## Instance Lifecycle
+
+```{mermaid}
+stateDiagram-v2
+    [*] --> Launching: deploy.sh
+    Launching --> Booting: spot fulfilled
+    Booting --> Importing: user-data runs
+    Importing --> Loading: Python imports (~91s cold EBS)
+    Loading --> Polling: model loaded (~15s)
+    Polling --> Processing: SQS message received
+    Processing --> Polling: video done, check queue
+    Polling --> Idle: no messages
+    Idle --> Terminated: idle timeout
+    Terminated --> [*]
+```
+
+Auto-terminate on idle prevents paying for GPU time when the queue is empty.
+
+## Cost Model
+
+```{python}
+import matplotlib.pyplot as plt
+import matplotlib
+matplotlib.use("Agg")
+
+# Cost breakdown per 5-min video
+components = ["EC2 spot\n(g6.2xlarge)", "S3 storage\n(GET/PUT)", "Lambda\n(detection)", "Lambda\n(post-proc)", "DynamoDB"]
+costs = [0.035, 0.003, 0.001, 0.001, 0.0001]
+colors = ["#e74c3c", "#3498db", "#2ecc71", "#2ecc71", "#f39c12"]
+
+fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 4))
+
+# Pie chart
+ax1.pie(costs, labels=components, colors=colors, autopct="%1.1f%%", startangle=90)
+ax1.set_title(f"Cost per video: ${sum(costs):.3f}")
+
+# Monthly projection
+videos_per_month = [10, 50, 100, 200, 500]
+monthly_cost = [v * sum(costs) for v in videos_per_month]
+ax2.bar([str(v) for v in videos_per_month], monthly_cost, color="#3498db", alpha=0.8)
+ax2.set_xlabel("Videos / month")
+ax2.set_ylabel("Monthly cost ($)")
+ax2.set_title("Projected Monthly Cost")
+for i, (v, c) in enumerate(zip(videos_per_month, monthly_cost)):
+    ax2.text(i, c + 0.1, f"${c:.2f}", ha="center", fontsize=9)
+
+plt.tight_layout()
+plt.show()
+```
+
+| Metric | Value |
+|--------|-------|
+| Instance | g6.2xlarge spot @ $0.47/hr |
+| Per 5-min video | ~$0.04 |
+| Throughput | ~8-11 videos/hr |
+| Cost per frame | ~$0.000003 |
+
+## EBS Cold-Start Problem
+
+Fresh AMI instances read from EBS at **12 MB/s** (lazy-loading S3 snapshots) vs 125 MB/s warm:
+
+| Storage | Read Speed | Use |
+|---------|-----------|-----|
+| Root EBS (gp3) | 12 MB/s cold → 500 MB/s warm | Python packages (~14.5 GB) |
+| NVMe instance store | 1.6 GB/s | Unused (419 GB available) |
+
+The 91s Python import time is dominated by cold EBS reads. First video warms the page cache; subsequent videos are normal speed.
+
+## AWS Resources
+
+| Resource | Service | Name |
+|----------|---------|------|
+| Video storage | S3 | `golf-swing-data` |
+| Label queue | SQS | `golf-video-label` |
+| Label worker | EC2 | g6.2xlarge spot |
+| Swing detection | Lambda | swing_detection |
+| Post-processing | Lambda | post_processing |
+| Detection results | DynamoDB | `golf-swing-detections` |
+| Container images | ECR | `golf-mmpose-labeler` |

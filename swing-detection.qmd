@@ -1,0 +1,208 @@
+---
+title: "Swing Detection"
+subtitle: "Signal processing on wrist keypoints to find backswings and contacts"
+---
+
+## Overview
+
+Pure **numpy/scipy** — no OpenCV, no ML models. Takes a `.pkl` keypoint file and finds:
+
+1. **Backswing apex frames** — where the club reaches the top of the backswing
+2. **Contact/impact frames** — where the club hits the ball
+
+Runs on Lambda CPU in ~13 seconds.
+
+## Signal Pipeline
+
+```{mermaid}
+flowchart TD
+    PKL["Load .pkl<br/>(17 keypoints × N frames)"] --> Extract["Extract wrist x,y<br/>(indices 9, 10)"]
+    Extract --> Interp["Interpolate<br/>low-confidence gaps"]
+    Interp --> Combine["Combine x + y<br/>into single signal"]
+    Combine --> Smooth["Savitzky-Golay<br/>smoothing"]
+    Smooth --> Peaks["scipy.find_peaks<br/>(prominence + distance)"]
+    Peaks --> Filter["Filter chain<br/>(amplitude, spacing, edge)"]
+    Filter --> Back["Backswing apex frames"]
+    Back --> Contact["Search downswing<br/>for velocity minimum"]
+    Contact --> Impact["Contact/impact frames"]
+```
+
+## Config Parameters
+
+The detection is controlled by a frozen dataclass with ~40 tunable parameters:
+
+```{python}
+#| eval: false
+from swing_detection.config import Config
+
+cfg = Config()
+# Key parameters:
+# cfg.savgol_window = 9       # Smoothing window
+# cfg.savgol_poly = 3         # Polynomial order
+# cfg.peak_prominence = 300   # Min peak height
+# cfg.peak_distance = 300     # Min frames between peaks
+# cfg.left_wrist = 9          # COCO-17 index
+# cfg.right_wrist = 10        # COCO-17 index
+```
+
+## Running Detection on a Sample
+
+```{python}
+import pickle, pathlib, numpy as np
+import matplotlib.pyplot as plt
+import matplotlib
+matplotlib.use("Agg")
+
+root = pathlib.Path("..").resolve()
+pkls = sorted(root.glob("test_trials/**/keypoints/*.pkl"))
+
+if pkls:
+    pkl_path = pkls[0]
+
+    with open(pkl_path, "rb") as f:
+        data = pickle.load(f)
+
+    meta = data.get("__meta__", {})
+    frame_keys = sorted([k for k in data if k != "__meta__"],
+                        key=lambda k: int(k.split("_")[1]))
+
+    # Extract wrist coordinates
+    left_wrist_x = []
+    left_wrist_y = []
+    right_wrist_x = []
+    right_wrist_y = []
+
+    for k in frame_keys:
+        kp = np.array(data[k]["keypoints"])
+        left_wrist_x.append(kp[9, 0])
+        left_wrist_y.append(kp[9, 1])
+        right_wrist_x.append(kp[10, 0])
+        right_wrist_y.append(kp[10, 1])
+
+    lx = np.array(left_wrist_x)
+    ly = np.array(left_wrist_y)
+    rx = np.array(right_wrist_x)
+    ry = np.array(right_wrist_y)
+
+    fig, axes = plt.subplots(2, 1, figsize=(12, 6), sharex=True)
+
+    axes[0].plot(lx, alpha=0.3, label="L wrist x (raw)")
+    axes[0].plot(rx, alpha=0.3, label="R wrist x (raw)")
+    axes[0].set_ylabel("X position (pixels)")
+    axes[0].legend()
+    axes[0].set_title(f"Wrist Trajectories — {pkl_path.stem}")
+
+    axes[1].plot(ly, alpha=0.3, label="L wrist y (raw)")
+    axes[1].plot(ry, alpha=0.3, label="R wrist y (raw)")
+    axes[1].set_ylabel("Y position (pixels)")
+    axes[1].set_xlabel("Frame")
+    axes[1].legend()
+
+    plt.tight_layout()
+    plt.show()
+else:
+    print("No sample pkl files found")
+```
+
+## Running the Actual Detector
+
+```{python}
+import sys, pathlib
+root = pathlib.Path("..").resolve()
+sys.path.insert(0, str(root))
+
+pkls = sorted(root.glob("test_trials/**/keypoints/*.pkl"))
+
+if pkls:
+    from swing_detection import detect_backswings, detect_contacts
+
+    pkl_path = pkls[0]
+    print(f"Detecting swings in: {pkl_path.name}")
+
+    result = detect_backswings(str(pkl_path))
+    print(f"\nBackswing apex frames: {result.peak_frames}")
+    print(f"Total frames: {result.total_frames}")
+    print(f"FPS: {result.fps}")
+    print(f"Filter log:")
+    for entry in result.filter_log:
+        print(f"  {entry}")
+
+    contact = detect_contacts(result)
+    print(f"\nContact frames: {contact.contact_frames}")
+
+    # Plot smoothed signal with detections
+    import matplotlib.pyplot as plt
+    import matplotlib
+    matplotlib.use("Agg")
+
+    fig, ax = plt.subplots(figsize=(12, 4))
+    ax.plot(result.smoothed, label="Smoothed wrist signal", color="#3498db")
+    for pf in result.peak_frames:
+        ax.axvline(pf, color="#e74c3c", linestyle="--", alpha=0.7, label="Backswing apex")
+    for cf in contact.contact_frames:
+        if cf >= 0:
+            ax.axvline(cf, color="#2ecc71", linestyle=":", alpha=0.7, label="Contact")
+
+    # Deduplicate legend
+    handles, labels = ax.get_legend_handles_labels()
+    by_label = dict(zip(labels, handles))
+    ax.legend(by_label.values(), by_label.keys())
+    ax.set_xlabel("Frame")
+    ax.set_ylabel("Combined wrist signal")
+    ax.set_title(f"Swing Detection — {pkl_path.stem}")
+    plt.tight_layout()
+    plt.show()
+else:
+    print("No sample pkl files found")
+```
+
+## Detection Data Structures
+
+```{python}
+#| eval: false
+from dataclasses import dataclass
+import numpy as np
+
+@dataclass
+class DetectionResult:
+    name: str                    # Video name
+    peak_frames: np.ndarray      # Backswing apex frame indices
+    smoothed: np.ndarray         # Smoothed wrist signal (full length)
+    combined: np.ndarray         # Combined x,y signal before smoothing
+    fps: float                   # Video frame rate
+    total_frames: int            # Total frame count
+    filter_log: list             # Step-by-step filter trace
+    pkl_data: dict               # Full keypoint data (for downstream)
+
+@dataclass
+class ContactResult:
+    name: str                    # Video name
+    contact_frames: np.ndarray   # Impact frames (-1 if not found for a swing)
+    backswing_result: DetectionResult
+    smoothed: np.ndarray         # Smoothed signal used for contact search
+```
+
+## Lambda Deployment
+
+The detector runs as a Lambda triggered by S3 `.pkl` suffix events:
+
+```{python}
+#| eval: false
+# lambda_handler.py — simplified flow
+def handler(event, context):
+    bucket = event["Records"][0]["s3"]["bucket"]["name"]
+    key = event["Records"][0]["s3"]["object"]["key"]
+
+    # Download pkl from S3
+    pkl_path = download_from_s3(bucket, key)
+
+    # Run detection
+    result = detect_backswings(pkl_path)
+    contact = detect_contacts(result)
+
+    # Upload JSON to S3 /detection/
+    upload_json(bucket, key, result, contact)
+
+    # Write to DynamoDB
+    write_to_dynamo(result, contact)
+```

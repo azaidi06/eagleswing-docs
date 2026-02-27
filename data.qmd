@@ -1,0 +1,159 @@
+---
+title: "Data Formats"
+subtitle: "PKL structure, JSON schemas, and keypoint conventions"
+---
+
+## PKL Keypoint Files
+
+The core data artifact. One per video, produced by `label_videos/worker.py`.
+
+```{python}
+#| eval: false
+# Structure:
+{
+    "frame_0": {
+        "keypoints": np.ndarray(17, 2),       # COCO-17 (x, y) per frame
+        "keypoint_scores": np.ndarray(17,),    # Confidence [0, 1] per joint
+        "bbox": [x1, y1, x2, y2]              # Person bounding box
+    },
+    "frame_1": {...},
+    ...
+    "__meta__": {
+        "fps": 60.0,
+        "total_frames": 3000,
+        "width": 1080,
+        "height": 1920,
+        "n_pkl_frames": 3000
+    }
+}
+```
+
+### Inspecting a Real PKL
+
+```{python}
+import pickle, pathlib, numpy as np
+
+root = pathlib.Path("..").resolve()
+pkls = sorted(root.glob("test_trials/**/keypoints/*.pkl"))
+
+if pkls:
+    pkl_path = pkls[0]
+    with open(pkl_path, "rb") as f:
+        data = pickle.load(f)
+
+    meta = data.get("__meta__", {})
+    frame_keys = sorted([k for k in data if k != "__meta__"],
+                        key=lambda k: int(k.split("_")[1]))
+
+    print(f"File: {pkl_path.name}")
+    print(f"Frames: {len(frame_keys)}")
+    print(f"Metadata: {meta}")
+    print(f"\nSample frame ({frame_keys[0]}):")
+
+    sample = data[frame_keys[0]]
+    kp = np.array(sample["keypoints"])
+    scores = np.array(sample["keypoint_scores"])
+
+    print(f"  Keypoints shape: {kp.shape}")
+    print(f"  Score range: [{scores.min():.3f}, {scores.max():.3f}]")
+    print(f"  Bbox: {sample.get('bbox', 'N/A')}")
+else:
+    print("No sample pkl files found")
+```
+
+## COCO-17 Keypoint Map
+
+```{python}
+#| echo: false
+COCO_MAP = {
+    0: "Nose",
+    1: "Left Eye", 2: "Right Eye",
+    3: "Left Ear", 4: "Right Ear",
+    5: "Left Shoulder", 6: "Right Shoulder",
+    7: "Left Elbow", 8: "Right Elbow",
+    9: "Left Wrist", 10: "Right Wrist",
+    11: "Left Hip", 12: "Right Hip",
+    13: "Left Knee", 14: "Right Knee",
+    15: "Left Ankle", 16: "Right Ankle",
+}
+
+for idx, name in COCO_MAP.items():
+    marker = " ← primary swing signal" if idx in (9, 10) else ""
+    print(f"  {idx:2d}: {name}{marker}")
+```
+
+## Detection JSON
+
+Produced by `swing_detection/lambda_handler.py`, stored at `{golfer}/detection/{video}.json`.
+
+```{python}
+#| eval: false
+{
+    "video_name": "IMG_1016",
+    "golfer": "stef",
+    "fps": 60.0,
+    "total_frames": 5821,
+    "backswing_frames": [450, 1200, 2100, 3050, 3900],
+    "contact_frames": [520, 1270, 2170, 3120, 3970],
+    "num_swings": 5,
+    "detection_config": {
+        "savgol_window": 9,
+        "peak_prominence": 300,
+        "peak_distance": 300
+    },
+    "timestamp": "2024-11-16T14:30:00Z"
+}
+```
+
+## Hand Finder Result
+
+```{python}
+#| eval: false
+{
+    "video_name": "IMG_1016",
+    "hand_frames": [[3950, 4100], null, [5200, 5350]],
+    "representative_frames": [4025, null, 5275],
+    "raised_side": ["LEFT", null, "LEFT"],
+    "classifications": ["scored_swing", "no_hand_raise", "scored_swing"],
+    "finger_counts": [4, null, 3]
+}
+```
+
+- `hand_frames`: `[start, end]` frame range of hand raise per swing, or `null` if none
+- `representative_frames`: Best frame for finger counting
+- `finger_counts`: Predicted number of fingers shown (score display)
+
+## DynamoDB Schema
+
+Table: `golf-swing-detections`
+
+| Attribute | Type | Description |
+|-----------|------|-------------|
+| `golfer` | String (PK) | Golfer name |
+| `video_name` | String (SK) | Video identifier |
+| `timestamp` | String | ISO 8601 detection time |
+| `num_swings` | Number | Detected swing count |
+| `backswing_frames` | List[Number] | Apex frame indices |
+| `contact_frames` | List[Number] | Impact frame indices |
+| `finger_predictions` | List[Object] | Added by post_processing |
+
+## S3 Key Patterns
+
+```{python}
+#| echo: false
+patterns = [
+    ("{golfer}/raw/{filename}.MOV", "Original iPhone upload"),
+    ("{golfer}/processed/{filename}.mp4", "Transcoded H.264 CFR"),
+    ("{golfer}/keypoints/{filename}.pkl", "ViTPose keypoints"),
+    ("{golfer}/detection/{filename}.json", "Swing detection results"),
+    ("{golfer}/fingers/{filename}.json", "Finger predictions"),
+    ("{golfer}/frames/{filename}_frame_{N}.jpg", "Skeleton overlay frames"),
+    ("{golfer}/output/{filename}_grid.jpg", "Swing grid visualization"),
+    ("{golfer}/analysis/{golfer}_{day}.png", "Biomechanical comparison plot"),
+]
+
+print(f"{'Key Pattern':<50s} Description")
+print(f"{'─'*50} {'─'*30}")
+for pattern, desc in patterns:
+    print(f"{pattern:<50s} {desc}")
+```

@@ -1,0 +1,217 @@
+---
+title: "Label Videos"
+subtitle: "NVENC transcode + ViTPose-Huge pose estimation on EC2 GPU"
+---
+
+## Overview
+
+The heaviest stage. Downloads raw iPhone video, transcodes to H.264 CFR, runs batched pose estimation, uploads results. All on a single EC2 spot instance.
+
+```
+worker.py (SQS mode)     worker.py --local <dir>     worker.py --local <dir> -w 3
+    │                         │                            │
+    ▼                         ▼                            ▼
+  poll SQS              process directory              multiprocessing
+  → download .MOV       → iterate .MOV/.mp4            → N GPU workers
+  → transcode           → transcode if needed          → process in parallel
+  → label               → label
+  → upload              → save locally
+```
+
+## Transcode
+
+`transcode_if_needed()` probes the input and decides what to do:
+
+```{python}
+#| eval: false
+# Probe pipeline (ffprobe)
+# 1. Check codec — if already H.264, may skip transcode
+# 2. Check VFR — variable frame rate needs CFR conversion
+# 3. Check pixel format — 10-bit HEVC needs yuv420p conversion
+
+# NVENC transcode command (simplified):
+# ffmpeg -hwaccel cuda -i input.MOV \
+#   -c:v h264_nvenc -preset p4 -pix_fmt yuv420p \
+#   -r 60 -an output.mp4
+
+# Fallback: libx264 CPU if NVENC unavailable
+```
+
+Key decisions:
+
+- **VFR → CFR**: iPhone shoots variable frame rate. Must normalize for frame-accurate keypoint indexing.
+- **HEVC 10-bit → H.264 8-bit**: Adds `-pix_fmt yuv420p` for downstream compatibility.
+- **NVENC with libx264 fallback**: GPU transcode is ~5x faster, but falls back gracefully.
+
+## Pose Estimation
+
+Uses **ViTPose-Huge** (632M params) with **RTMDet-M** as the person detector. Outputs COCO-17 keypoints per frame.
+
+### COCO-17 Keypoint Layout
+
+```{python}
+import matplotlib.pyplot as plt
+import matplotlib
+matplotlib.use("Agg")
+
+# COCO-17 keypoints
+names = [
+    "nose", "L eye", "R eye", "L ear", "R ear",
+    "L shoulder", "R shoulder", "L elbow", "R elbow",
+    "L wrist", "R wrist", "L hip", "R hip",
+    "L knee", "R knee", "L ankle", "R ankle"
+]
+
+# Approximate positions for visualization
+positions = [
+    (0.50, 0.95),  # nose
+    (0.47, 0.97), (0.53, 0.97),  # eyes
+    (0.43, 0.95), (0.57, 0.95),  # ears
+    (0.38, 0.78), (0.62, 0.78),  # shoulders
+    (0.30, 0.62), (0.70, 0.62),  # elbows
+    (0.25, 0.48), (0.75, 0.48),  # wrists
+    (0.42, 0.50), (0.58, 0.50),  # hips
+    (0.40, 0.30), (0.60, 0.30),  # knees
+    (0.38, 0.10), (0.62, 0.10),  # ankles
+]
+
+# Skeleton connections
+skeleton = [
+    (0,1),(0,2),(1,3),(2,4),  # head
+    (5,6),(5,7),(7,9),(6,8),(8,10),  # arms
+    (5,11),(6,12),(11,12),  # torso
+    (11,13),(13,15),(12,14),(14,16),  # legs
+]
+
+fig, ax = plt.subplots(figsize=(4, 8))
+for i, j in skeleton:
+    ax.plot([positions[i][0], positions[j][0]],
+            [positions[i][1], positions[j][1]], "gray", lw=2, alpha=0.5)
+for idx, (x, y) in enumerate(positions):
+    color = "#e74c3c" if idx in (9, 10) else "#3498db"  # highlight wrists
+    ax.scatter(x, y, s=80, c=color, zorder=5)
+    ax.annotate(f"{idx}: {names[idx]}", (x, y), fontsize=7,
+                xytext=(8, 0), textcoords="offset points", va="center")
+
+ax.set_xlim(0.1, 0.9)
+ax.set_ylim(0.0, 1.05)
+ax.set_aspect("equal")
+ax.set_title("COCO-17 Keypoints\n(red = wrists, used for swing detection)")
+ax.axis("off")
+plt.tight_layout()
+plt.show()
+```
+
+Indices **9** (left wrist) and **10** (right wrist) are the primary signal for swing detection downstream.
+
+## Inference Modes
+
+### `label_video_hifi` — Serial RTMDet + Batched ViTPose
+
+```
+for each batch of 32 frames:
+    run RTMDet on each frame (serial)
+    batch all person crops
+    run ViTPose on batch
+```
+
+### `label_video_turbo` — Fully Batched with Threaded Overlap
+
+```{mermaid}
+flowchart LR
+    subgraph BG["Background Thread (CPU)"]
+        A["NVDEC decode<br/>h264_cuvid"] --> B["Resize/pad<br/>640x640"]
+        B --> C["Normalize<br/>for RTMDet"]
+        C --> Q["queue.Queue<br/>(maxsize=2)"]
+    end
+
+    subgraph Main["Main Thread (GPU)"]
+        Q --> D["RTMDet batched<br/>(inductor compiled)"]
+        D --> E["Crop + warp<br/>192x256 patches"]
+        E --> F["ViTPose batched<br/>(inductor compiled)"]
+    end
+```
+
+The background thread hides **~70ms** of CPU work (decode + resize/pad) behind GPU execution. This is the production mode.
+
+## torch.compile Performance
+
+```{python}
+import matplotlib.pyplot as plt
+import matplotlib
+matplotlib.use("Agg")
+import numpy as np
+
+models = ["RTMDet", "ViTPose", "E2E turbo\n(fps)"]
+eager = [236, 258, 32.5]
+compiled = [107, 237, 57.5]
+speedup = [2.2, 1.08, 1.77]
+
+x = np.arange(len(models))
+width = 0.35
+
+fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 4))
+
+# Bar chart
+bars1 = ax1.bar(x - width/2, eager, width, label="Eager", color="#e74c3c", alpha=0.8)
+bars2 = ax1.bar(x + width/2, compiled, width, label="Compiled (inductor)", color="#2ecc71", alpha=0.8)
+ax1.set_ylabel("ms/batch (lower=better) | fps (higher=better)")
+ax1.set_xticks(x)
+ax1.set_xticklabels(models)
+ax1.legend()
+ax1.set_title("Eager vs torch.compile")
+
+# Speedup
+ax2.bar(models, speedup, color=["#f39c12", "#f39c12", "#e74c3c"], alpha=0.8)
+ax2.axhline(y=1.0, color="gray", linestyle="--", alpha=0.5)
+ax2.set_ylabel("Speedup (x)")
+ax2.set_title("Compilation Speedup")
+for i, v in enumerate(speedup):
+    ax2.text(i, v + 0.03, f"{v}x", ha="center", fontsize=10, fontweight="bold")
+
+plt.tight_layout()
+plt.show()
+```
+
+- **Backend**: `inductor` (default). `torch_tensorrt` was rejected — L4 is bandwidth-bound, TRT FP16 was *slower* than eager.
+- **First-batch overhead**: ~18s for inductor graph lowering + autotuning
+- **Cache**: `TORCHINDUCTOR_FX_GRAPH_CACHE=1`, keyed on code hash + file mtime
+
+## Max Batch Sizes (24GB L4 VRAM)
+
+| Model | Input Size | Max Batch | Notes |
+|-------|-----------|-----------|-------|
+| ViTPose-Huge | 192x256 | 1024 | Small inputs, large batches |
+| RTMDet-M | 640x640 | 448 | VRAM limiter due to input size |
+
+Production uses batch=32, well within limits.
+
+## Loading a Sample PKL
+
+```{python}
+import pickle, pathlib, numpy as np
+
+# Find a sample pkl in test_trials
+root = pathlib.Path("..").resolve()
+pkls = sorted(root.glob("test_trials/**/keypoints/*.pkl"))
+
+if pkls:
+    pkl_path = pkls[0]
+    print(f"Loading: {pkl_path.relative_to(root)}")
+
+    with open(pkl_path, "rb") as f:
+        data = pickle.load(f)
+
+    meta = data.get("__meta__", {})
+    frame_keys = [k for k in data if k != "__meta__"]
+    print(f"Frames: {len(frame_keys)}")
+    print(f"Metadata: {meta}")
+
+    if frame_keys:
+        sample = data[frame_keys[0]]
+        print(f"\nPer-frame keys: {list(sample.keys())}")
+        print(f"Keypoints shape: {np.array(sample['keypoints']).shape}")
+        print(f"Scores shape: {np.array(sample['keypoint_scores']).shape}")
+else:
+    print("No sample pkl files found in test_trials/")
+```

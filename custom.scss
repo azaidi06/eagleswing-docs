@@ -1,0 +1,237 @@
+/*-- scss:defaults --*/
+
+// Fonts — match React app (DM Sans + JetBrains Mono)
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+$font-family-sans-serif: 'DM Sans', 'SF Pro Display', -apple-system, sans-serif;
+$font-family-monospace: 'JetBrains Mono', monospace;
+
+// Color palette — exact match to _output_artifacts/src/pipelineData.js
+$pipeline-bg:       #0a0f1a;
+$pipeline-card:     #111827;
+$pipeline-border:   #1e293b;
+$pipeline-accent:   #22d3ee;
+$pipeline-green:    #34d399;
+$pipeline-amber:    #fbbf24;
+$pipeline-purple:   #a78bfa;
+$pipeline-rose:     #fb7185;
+$pipeline-text:     #e2e8f0;
+$pipeline-muted:    #94a3b8;
+$pipeline-dim:      #64748b;
+
+// Bootstrap overrides
+$body-bg:           $pipeline-bg;
+$body-color:        $pipeline-text;
+$link-color:        $pipeline-accent;
+$link-hover-color:  lighten($pipeline-accent, 10%);
+
+$primary:           $pipeline-accent;
+$secondary:         $pipeline-dim;
+$success:           $pipeline-green;
+$warning:           $pipeline-amber;
+$danger:            $pipeline-rose;
+$info:              $pipeline-purple;
+
+$navbar-bg:         $pipeline-card;
+$navbar-fg:         $pipeline-text;
+
+$card-bg:           $pipeline-card;
+$card-border-color: $pipeline-border;
+
+$table-bg:          transparent;
+$table-border-color: $pipeline-border;
+$table-striped-bg:  rgba($pipeline-border, 0.3);
+$table-hover-bg:    rgba($pipeline-accent, 0.06);
+
+$input-bg:          $pipeline-card;
+$input-border-color: $pipeline-border;
+$input-color:       $pipeline-text;
+
+$code-color:        $pipeline-accent;
+$code-bg:           rgba($pipeline-accent, 0.08);
+
+$border-color:      $pipeline-border;
+$hr-color:          $pipeline-border;
+
+$headings-color:    $pipeline-text;
+
+$dropdown-bg:       $pipeline-card;
+$dropdown-border-color: $pipeline-border;
+$dropdown-link-color: $pipeline-text;
+$dropdown-link-hover-bg: rgba($pipeline-accent, 0.1);
+
+// Rounded corners like the React app
+$border-radius:     0.75rem;
+$border-radius-lg:  1rem;
+$border-radius-sm:  0.5rem;
+
+/*-- scss:rules --*/
+
+// Navbar styling
+.navbar {
+  border-bottom: 1px solid $pipeline-border !important;
+  backdrop-filter: blur(12px);
+
+  .navbar-brand {
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+
+  .nav-link {
+    font-weight: 600;
+    font-size: 14px;
+    color: $pipeline-dim !important;
+    padding: 8px 16px !important;
+    border-radius: 10px;
+    transition: all 0.2s ease;
+
+    &:hover, &.active {
+      color: $pipeline-accent !important;
+      background: rgba($pipeline-accent, 0.08);
+    }
+  }
+}
+
+// Page title / hero
+.quarto-title {
+  h1.title {
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    background: linear-gradient(135deg, $pipeline-text, $pipeline-muted);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .subtitle {
+    color: $pipeline-dim;
+    font-size: 15px;
+  }
+}
+
+// Headings
+h1, h2, h3, h4, h5, h6 {
+  color: $pipeline-text;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+// Muted/secondary text
+.text-muted, .text-secondary {
+  color: $pipeline-muted !important;
+}
+
+// Tables — match the React app's clean dark look
+.table {
+  --bs-table-bg: transparent;
+  --bs-table-color: #{$pipeline-text};
+
+  th {
+    font-size: 11px;
+    font-weight: 600;
+    color: $pipeline-dim;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    border-bottom: 1px solid $pipeline-border;
+  }
+
+  td {
+    border-color: $pipeline-border;
+    font-size: 13px;
+  }
+
+  code {
+    font-family: $font-family-monospace;
+    font-size: 12px;
+    font-weight: 500;
+    color: $pipeline-accent;
+    background: rgba($pipeline-accent, 0.1);
+    padding: 2px 8px;
+    border-radius: 6px;
+  }
+}
+
+// Code blocks
+pre {
+  background: $pipeline-card !important;
+  border: 1px solid $pipeline-border;
+  border-radius: 12px;
+}
+
+div.sourceCode {
+  background: $pipeline-card !important;
+  border: 1px solid $pipeline-border;
+  border-radius: 12px;
+}
+
+// Inline code
+p code, li code, td code {
+  color: $pipeline-accent;
+  background: rgba($pipeline-accent, 0.08);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.85em;
+}
+
+// Cards / callouts
+.callout {
+  background: $pipeline-card;
+  border-color: $pipeline-border;
+  border-radius: 12px;
+}
+
+// TOC sidebar
+.sidebar nav[role="doc-toc"] {
+  a {
+    color: $pipeline-dim;
+    transition: color 0.2s ease;
+
+    &:hover, &.active {
+      color: $pipeline-accent;
+    }
+  }
+}
+
+// Mermaid diagrams — dark background
+.mermaid {
+  background: transparent;
+}
+
+// Footer
+.nav-footer {
+  border-top: 1px solid $pipeline-border;
+  color: $pipeline-dim;
+  font-size: 12px;
+}
+
+// Search
+.search-input {
+  background: $pipeline-card !important;
+  border-color: $pipeline-border !important;
+  color: $pipeline-text !important;
+}
+
+// Scrollbar styling
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: $pipeline-bg;
+}
+
+::-webkit-scrollbar-thumb {
+  background: $pipeline-border;
+  border-radius: 4px;
+
+  &:hover {
+    background: $pipeline-dim;
+  }
+}
+
+// Selection color
+::selection {
+  background: rgba($pipeline-accent, 0.3);
+  color: $pipeline-text;
+}
