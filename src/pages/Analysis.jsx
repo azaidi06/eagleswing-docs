@@ -17,15 +17,15 @@ const Analysis = () => {
   const metricColors = { Rotation: colors.accent, Posture: colors.purple, Linear: colors.green };
 
   return (
-    <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '40px 24px' }}>
+    <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '24px 16px' }}>
       <div ref={headerRef} style={{ marginBottom: '32px', opacity: headerInView ? 1 : 0, transform: headerInView ? 'translateY(0)' : 'translateY(16px)', transition: 'all 0.7s cubic-bezier(0.16, 1, 0.3, 1)' }}>
         <h1 style={{ fontSize: '28px', fontWeight: 700, margin: '0 0 6px', background: `linear-gradient(135deg, ${colors.text}, ${colors.textMuted})`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', letterSpacing: '-0.02em' }}>Biomechanical Analysis</h1>
         <p style={{ color: colors.textDim, fontSize: '14px', margin: 0 }}>Swing comparison, metrics, and statistical analysis</p>
       </div>
 
       {/* Overview */}
-      <CollapsibleCard title="Overview" sub="Keypoint pkls + detection results \u2192 analysis" icon="&#128202;">
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', marginBottom: '16px' }}>
+      <CollapsibleCard title="Overview" sub="Keypoint pkls + detection results → analysis" icon="&#128202;">
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px', marginBottom: '16px' }}>
           {[
             { title: 'Metric Extraction', desc: 'Shoulder turn, hip rotation, X-factor, spine angle', color: colors.accent },
             { title: 'SPM Comparison', desc: 'Statistical Parametric Mapping between swing groups', color: colors.purple },
@@ -51,7 +51,7 @@ const Analysis = () => {
 
       {/* Metrics */}
       <CollapsibleCard title="Metrics Computed" sub="Per-frame across swing phases" icon="&#128207;">
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
           {Object.entries(metrics).map(([category, items]) => (
             <div key={category} style={{ padding: '16px', borderRadius: '12px', background: `${metricColors[category]}06`, border: `1px solid ${metricColors[category]}15` }}>
               <div style={{ fontSize: '13px', fontWeight: 700, color: metricColors[category], marginBottom: '10px' }}>{category}</div>
@@ -93,14 +93,14 @@ const Analysis = () => {
 
       {/* Key Functions */}
       <CollapsibleCard title="Key Functions" icon="&#128736;">
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
           <div>
             <CodeBlock title="analyze/core.py">{`# Load and prepare swing data
 load_golfer_data(csv_path, golfer, data_dir,
                  back_frames, down_frames, day_filter)
 
 # Build SwingData objects from dataframe
-build_swing_items(df)  # \u2192 List[SwingData]
+build_swing_items(df)  # → List[SwingData]
 
 # Find most representative swing
 resolve_group_by_score(items, score_range)
@@ -116,7 +116,7 @@ render_analysis_figure(
     phases,           # ["backswing", "downswing"]
     metrics,          # Which metrics to plot
     config            # PlotConfig (colors, sizes)
-)  # \u2192 matplotlib Figure`}</CodeBlock>
+)  # → matplotlib Figure`}</CodeBlock>
           </div>
         </div>
       </CollapsibleCard>

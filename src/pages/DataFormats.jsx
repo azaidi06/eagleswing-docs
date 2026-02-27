@@ -27,14 +27,14 @@ const DataFormats = () => {
   ];
 
   return (
-    <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '40px 24px' }}>
+    <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '24px 16px' }}>
       <div ref={headerRef} style={{ marginBottom: '32px', opacity: headerInView ? 1 : 0, transform: headerInView ? 'translateY(0)' : 'translateY(16px)', transition: 'all 0.7s cubic-bezier(0.16, 1, 0.3, 1)' }}>
         <h1 style={{ fontSize: '28px', fontWeight: 700, margin: '0 0 6px', background: `linear-gradient(135deg, ${colors.text}, ${colors.textMuted})`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', letterSpacing: '-0.02em' }}>Data Formats</h1>
         <p style={{ color: colors.textDim, fontSize: '14px', margin: 0 }}>PKL structure, JSON schemas, and keypoint conventions</p>
       </div>
 
       {/* PKL */}
-      <CollapsibleCard title="PKL Keypoint Files" sub="Core data artifact \u2014 one per video" icon="&#128230;">
+      <CollapsibleCard title="PKL Keypoint Files" sub="Core data artifact &mdash; one per video" icon="&#128230;">
         <CodeBlock title="Structure">{`{
     "frame_0": {
         "keypoints": np.ndarray(17, 2),       # COCO-17 (x, y) per frame
@@ -55,7 +55,7 @@ const DataFormats = () => {
 
       {/* COCO Map */}
       <CollapsibleCard title="COCO-17 Keypoint Map" icon="&#129524;">
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
           <div>
             {cocoMap.slice(0, 9).map(([idx, name]) => (
               <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '6px 0', borderBottom: `1px solid ${colors.divider}` }}>
@@ -108,7 +108,7 @@ const DataFormats = () => {
     "classifications": ["scored_swing", "no_hand_raise", "scored_swing"],
     "finger_counts": [4, null, 3]
 }`}</CodeBlock>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginTop: '12px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '8px', marginTop: '12px' }}>
           {[
             { field: 'hand_frames', desc: '[start, end] frame range, or null' },
             { field: 'representative_frames', desc: 'Best frame for finger counting' },
@@ -143,9 +143,9 @@ const DataFormats = () => {
       <CollapsibleCard title="S3 Key Patterns" icon="&#128193;">
         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
           {s3Patterns.map(([pattern, desc]) => (
-            <div key={pattern} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '8px 14px', borderRadius: '8px', background: `${colors.cardBorder}30` }}>
-              <code style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: colors.accent, flex: '0 0 auto', minWidth: '320px' }}>{pattern}</code>
-              <span style={{ fontSize: '12px', color: colors.textMuted }}>{desc}</span>
+            <div key={pattern} style={{ padding: '8px 14px', borderRadius: '8px', background: `${colors.cardBorder}30` }}>
+              <code style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: colors.accent, wordBreak: 'break-all' }}>{pattern}</code>
+              <div style={{ fontSize: '11px', color: colors.textMuted, marginTop: '2px' }}>{desc}</div>
             </div>
           ))}
         </div>

@@ -37,7 +37,7 @@ const LabelVideos = () => {
   const skeleton = [[0,1],[0,2],[1,3],[2,4],[5,6],[5,7],[7,9],[6,8],[8,10],[5,11],[6,12],[11,12],[11,13],[13,15],[12,14],[14,16]];
 
   return (
-    <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '40px 24px' }}>
+    <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '24px 16px' }}>
       <div ref={headerRef} style={{ marginBottom: '32px', opacity: headerInView ? 1 : 0, transform: headerInView ? 'translateY(0)' : 'translateY(16px)', transition: 'all 0.7s cubic-bezier(0.16, 1, 0.3, 1)' }}>
         <h1 style={{ fontSize: '28px', fontWeight: 700, margin: '0 0 6px', background: `linear-gradient(135deg, ${colors.text}, ${colors.textMuted})`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', letterSpacing: '-0.02em' }}>Label Videos</h1>
         <p style={{ color: colors.textDim, fontSize: '14px', margin: 0 }}>NVENC transcode + ViTPose-Huge pose estimation on EC2 GPU</p>
@@ -48,11 +48,11 @@ const LabelVideos = () => {
         <p style={{ fontSize: '13px', color: colors.textMuted, lineHeight: 1.6, marginBottom: '16px' }}>
           Downloads raw iPhone video, transcodes to H.264 CFR, runs batched pose estimation, uploads results. All on a single EC2 spot instance.
         </p>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
           {[
-            { title: 'SQS Mode', desc: 'Poll SQS \u2192 download .MOV \u2192 transcode \u2192 label \u2192 upload', cmd: 'python worker.py' },
-            { title: 'Local Mode', desc: 'Process directory \u2192 iterate .MOV/.mp4 \u2192 transcode if needed \u2192 label', cmd: 'python worker.py --local <dir>' },
-            { title: 'Parallel Mode', desc: 'N GPU workers \u2192 process in parallel', cmd: 'python worker.py --local <dir> -w 3' },
+            { title: 'SQS Mode', desc: 'Poll SQS → download .MOV → transcode → label → upload', cmd: 'python worker.py' },
+            { title: 'Local Mode', desc: 'Process directory → iterate .MOV/.mp4 → transcode if needed → label', cmd: 'python worker.py --local <dir>' },
+            { title: 'Parallel Mode', desc: 'N GPU workers → process in parallel', cmd: 'python worker.py --local <dir> -w 3' },
           ].map(mode => (
             <div key={mode.title} style={{ padding: '14px 16px', borderRadius: '10px', background: `${colors.purple}06`, border: `1px solid ${colors.purple}15` }}>
               <div style={{ fontSize: '13px', fontWeight: 700, color: colors.purple, marginBottom: '4px' }}>{mode.title}</div>
@@ -65,10 +65,10 @@ const LabelVideos = () => {
 
       {/* Transcode */}
       <CollapsibleCard title="Transcode" sub="transcode_if_needed() probes input and decides" icon="&#127909;">
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px', marginBottom: '16px' }}>
           {[
-            { title: 'VFR \u2192 CFR', desc: 'iPhone shoots variable frame rate. Must normalize for frame-accurate keypoint indexing.', color: colors.amber },
-            { title: 'HEVC 10-bit \u2192 H.264 8-bit', desc: 'Adds -pix_fmt yuv420p for downstream compatibility.', color: colors.green },
+            { title: 'VFR → CFR', desc: 'iPhone shoots variable frame rate. Must normalize for frame-accurate keypoint indexing.', color: colors.amber },
+            { title: 'HEVC 10-bit → H.264 8-bit', desc: 'Adds -pix_fmt yuv420p for downstream compatibility.', color: colors.green },
             { title: 'NVENC primary', desc: 'GPU transcode is ~5x faster than CPU.', color: colors.purple },
             { title: 'libx264 fallback', desc: 'Falls back gracefully if NVENC unavailable.', color: colors.textDim },
           ].map(item => (
@@ -85,7 +85,7 @@ const LabelVideos = () => {
 
       {/* Pose Estimation + Keypoint Diagram */}
       <CollapsibleCard title="Pose Estimation" sub="ViTPose-Huge (632M params) + RTMDet-M detector" icon="&#129524;">
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '24px' }}>
           <div>
             <div style={{ fontSize: '13px', fontWeight: 700, color: colors.text, marginBottom: '8px' }}>COCO-17 Keypoint Layout</div>
             <svg viewBox="0 0 300 265" style={{ width: '100%', maxWidth: '300px', background: `${colors.card}`, border: `1px solid ${colors.cardBorder}`, borderRadius: '12px', padding: '8px' }}>
@@ -114,8 +114,8 @@ const LabelVideos = () => {
             <Table
               headers={['Model', 'Input', 'Max Batch']}
               rows={[
-                ['ViTPose-Huge', '192\u00d7256', '1024'],
-                ['RTMDet-M', '640\u00d7640', '448'],
+                ['ViTPose-Huge', '192×256', '1024'],
+                ['RTMDet-M', '640×640', '448'],
               ]}
             />
             <p style={{ fontSize: '11px', color: colors.textDim }}>Production uses batch=32, well within limits.</p>
@@ -130,7 +130,7 @@ const LabelVideos = () => {
             <div style={{ fontSize: '11px', fontWeight: 600, color: colors.textDim, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '8px' }}>Background Thread (CPU)</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
               <SubStep label="NVDEC decode" desc="h264_cuvid hardware decode" color={colors.accent} />
-              <SubStep label="Resize/pad" desc="640\u00d7640 for RTMDet" color={colors.accent} />
+              <SubStep label="Resize/pad" desc="640×640 for RTMDet" color={colors.accent} />
               <SubStep label="Normalize" desc="Batch into queue (maxsize=2)" color={colors.accent} />
             </div>
           </div>
@@ -141,7 +141,7 @@ const LabelVideos = () => {
             <div style={{ fontSize: '11px', fontWeight: 600, color: colors.textDim, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '8px' }}>Main Thread (GPU)</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
               <SubStep label="RTMDet batched" desc="Inductor compiled detection" color={colors.purple} />
-              <SubStep label="Crop + warp" desc="192\u00d7256 patches" color={colors.purple} />
+              <SubStep label="Crop + warp" desc="192×256 patches" color={colors.purple} />
               <SubStep label="ViTPose batched" desc="Inductor compiled pose" color={colors.purple} />
             </div>
           </div>
@@ -153,7 +153,7 @@ const LabelVideos = () => {
 
       {/* torch.compile */}
       <CollapsibleCard title="torch.compile Performance" sub="Inductor compilation on L4 GPU" icon="&#9889;">
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', marginBottom: '16px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px', marginBottom: '16px' }}>
           {[
             { model: 'RTMDet', eager: '236ms', compiled: '107ms', speedup: '2.2x', color: colors.amber },
             { model: 'ViTPose', eager: '258ms', compiled: '237ms', speedup: '1.08x', color: colors.purple },
@@ -178,7 +178,7 @@ const LabelVideos = () => {
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
           {[
             'Backend: inductor (default)',
-            'torch_tensorrt rejected \u2014 L4 bandwidth-bound',
+            'torch_tensorrt rejected — L4 bandwidth-bound',
             'First-batch overhead: ~18s',
             'Cache: TORCHINDUCTOR_FX_GRAPH_CACHE=1',
           ].map(note => (

@@ -17,7 +17,7 @@ const DeployCosts = () => {
   const [headerRef, headerInView] = useInView({ threshold: 0.1 });
 
   return (
-    <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '40px 24px' }}>
+    <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '24px 16px' }}>
       <div ref={headerRef} style={{ marginBottom: '32px', opacity: headerInView ? 1 : 0, transform: headerInView ? 'translateY(0)' : 'translateY(16px)', transition: 'all 0.7s cubic-bezier(0.16, 1, 0.3, 1)' }}>
         <h1 style={{ fontSize: '28px', fontWeight: 700, margin: '0 0 6px', background: `linear-gradient(135deg, ${colors.text}, ${colors.textMuted})`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', letterSpacing: '-0.02em' }}>Deploy & Costs</h1>
         <p style={{ color: colors.textDim, fontSize: '14px', margin: 0 }}>AMI baking, spot instances, and cost model</p>
@@ -25,7 +25,7 @@ const DeployCosts = () => {
 
       {/* Deployment Architecture */}
       <CollapsibleCard title="Deployment Architecture" sub="Two-phase: bake (infrequent) + deploy (per-session)" icon="&#128640;">
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '24px' }}>
           <div style={{ padding: '16px', borderRadius: '12px', background: `${colors.amber}06`, border: `1px solid ${colors.amber}15` }}>
             <div style={{ fontSize: '13px', fontWeight: 700, color: colors.amber, marginBottom: '12px' }}>bake_ami.sh (rare)</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
@@ -36,7 +36,7 @@ const DeployCosts = () => {
                 'Install mmcv-lite (4 patches)',
                 'Download model weights',
                 'torch.compile warmup',
-                'Snapshot \u2192 AMI (~30 min)',
+                'Snapshot → AMI (~30 min)',
               ].map(step => (
                 <div key={step} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <div style={{ width: '5px', height: '5px', borderRadius: '50%', background: colors.amber, flexShrink: 0 }} />
@@ -51,7 +51,7 @@ const DeployCosts = () => {
               {[
                 'Read AMI ID',
                 'Create SQS + DLQ',
-                'Configure S3\u2192SQS triggers',
+                'Configure S3→SQS triggers',
                 'Upload scripts to S3',
                 'Launch spot instance',
                 'user-data: S3 pull + start',
@@ -77,8 +77,8 @@ const DeployCosts = () => {
             ['PyTorch', '2.8+cu126', 'cu124 builds don\'t exist for 2.8'],
             ['mmcv-lite', '2.2.0', '4 patches for torch 2.8 compat'],
             ['ffmpeg', 'custom build', 'NVENC + NVDEC support'],
-            ['ViTPose-Huge', '\u2014', '~632M params, pre-cached weights'],
-            ['RTMDet-M', '\u2014', 'Person detector, pre-cached weights'],
+            ['ViTPose-Huge', '—', '~632M params, pre-cached weights'],
+            ['RTMDet-M', '—', 'Person detector, pre-cached weights'],
             ['numpy', '<2', 'Required for xtcocotools'],
           ]}
         />
@@ -87,7 +87,7 @@ const DeployCosts = () => {
           <p style={{ fontSize: '12px', color: colors.textMuted, lineHeight: 1.6, marginBottom: '12px' }}>
             Full mmcv can't be built (setuptools removed pkg_resources) and prebuilt wheels are ABI-incompatible with torch 2.8. mmcv-lite is pure Python but needs 4 patches:
           </p>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '8px' }}>
             <SubStep label="Patch 1: ext_loader.py" desc="Stub namedtuple for missing _ext module" color={colors.purple} />
             <SubStep label="Patch 2: nms.py" desc="torchvision.ops.nms fallback (RTMDet)" color={colors.purple} />
             <SubStep label="Patch 3: mmpose heads" desc="Skip EDPoseHead import" color={colors.purple} />
@@ -97,7 +97,7 @@ const DeployCosts = () => {
       </CollapsibleCard>
 
       {/* Instance Lifecycle */}
-      <CollapsibleCard title="Instance Lifecycle" sub="Boot \u2192 process \u2192 auto-terminate" icon="&#128260;">
+      <CollapsibleCard title="Instance Lifecycle" sub="Boot → process → auto-terminate" icon="&#128260;">
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
           {[
             { label: 'Launching', desc: 'deploy.sh', color: colors.textDim },
@@ -150,7 +150,7 @@ const DeployCosts = () => {
         <Table
           headers={['Storage', 'Read Speed', 'Use']}
           rows={[
-            ['Root EBS (gp3)', '12 MB/s cold \u2192 500 MB/s warm', 'Python packages (~14.5 GB)'],
+            ['Root EBS (gp3)', '12 MB/s cold → 500 MB/s warm', 'Python packages (~14.5 GB)'],
             ['NVMe instance store', '1.6 GB/s', 'Unused (419 GB available)'],
           ]}
         />

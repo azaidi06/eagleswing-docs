@@ -22,7 +22,7 @@ const SwingDetection = () => {
   const [headerRef, headerInView] = useInView({ threshold: 0.1 });
 
   const pipelineSteps = [
-    { label: 'Load .pkl', sub: '17 keypoints \u00d7 N frames', color: colors.accent },
+    { label: 'Load .pkl', sub: '17 keypoints × N frames', color: colors.accent },
     { label: 'Extract wrist x,y', sub: 'Indices 9 (left), 10 (right)', color: colors.accent },
     { label: 'Interpolate', sub: 'Fill low-confidence gaps', color: colors.green },
     { label: 'Combine x + y', sub: 'Single signal per wrist', color: colors.green },
@@ -30,22 +30,22 @@ const SwingDetection = () => {
     { label: 'scipy.find_peaks', sub: 'Prominence + distance filters', color: colors.purple },
     { label: 'Filter chain', sub: 'Amplitude, spacing, edge removal', color: colors.amber },
     { label: 'Backswing apex frames', sub: 'Peak frame indices', color: colors.rose },
-    { label: 'Search downswing', sub: 'Velocity minimum \u2192 contact frames', color: colors.rose },
+    { label: 'Search downswing', sub: 'Velocity minimum → contact frames', color: colors.rose },
   ];
 
   return (
-    <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '40px 24px' }}>
+    <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '24px 16px' }}>
       <div ref={headerRef} style={{ marginBottom: '32px', opacity: headerInView ? 1 : 0, transform: headerInView ? 'translateY(0)' : 'translateY(16px)', transition: 'all 0.7s cubic-bezier(0.16, 1, 0.3, 1)' }}>
         <h1 style={{ fontSize: '28px', fontWeight: 700, margin: '0 0 6px', background: `linear-gradient(135deg, ${colors.text}, ${colors.textMuted})`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', letterSpacing: '-0.02em' }}>Swing Detection</h1>
         <p style={{ color: colors.textDim, fontSize: '14px', margin: 0 }}>Signal processing on wrist keypoints to find backswings and contacts</p>
       </div>
 
       {/* Overview */}
-      <CollapsibleCard title="Overview" sub="Pure numpy/scipy \u2014 no OpenCV, no ML models" icon="&#127919;">
+      <CollapsibleCard title="Overview" sub="Pure numpy/scipy — no OpenCV, no ML models" icon="&#127919;">
         <p style={{ fontSize: '13px', color: colors.textMuted, lineHeight: 1.6, marginBottom: '16px' }}>
           Takes a <code style={{ color: colors.accent, background: `${colors.accent}15`, padding: '1px 6px', borderRadius: '4px', fontSize: '12px' }}>.pkl</code> keypoint file and finds:
         </p>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '12px', marginBottom: '16px' }}>
           <div style={{ padding: '14px 16px', borderRadius: '10px', background: `${colors.rose}06`, border: `1px solid ${colors.rose}15` }}>
             <div style={{ fontSize: '13px', fontWeight: 700, color: colors.rose }}>Backswing apex frames</div>
             <div style={{ fontSize: '11px', color: colors.textMuted, marginTop: '4px' }}>Where the club reaches the top of the backswing</div>
@@ -60,7 +60,7 @@ const SwingDetection = () => {
 
       {/* Signal Pipeline */}
       <CollapsibleCard title="Signal Pipeline" sub="From raw keypoints to detected swings" icon="&#128200;">
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '32px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '24px' }}>
           <div>
             {pipelineSteps.map((step, i) => (
               <PipelineStep key={step.label} {...step} isLast={i === pipelineSteps.length - 1} />
@@ -82,7 +82,7 @@ const SwingDetection = () => {
 
       {/* Data Structures */}
       <CollapsibleCard title="Detection Data Structures" sub="DetectionResult and ContactResult" icon="&#128202;">
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
           <div>
             <div style={{ fontSize: '13px', fontWeight: 700, color: colors.rose, marginBottom: '8px' }}>DetectionResult</div>
             <Table
@@ -116,7 +116,7 @@ const SwingDetection = () => {
 
       {/* Lambda */}
       <CollapsibleCard title="Lambda Deployment" sub="Triggered by S3 .pkl suffix events" icon="&#9889;">
-        <CodeBlock title="lambda_handler.py \u2014 simplified flow">{`def handler(event, context):
+        <CodeBlock title="lambda_handler.py — simplified flow">{`def handler(event, context):
     bucket = event["Records"][0]["s3"]["bucket"]["name"]
     key = event["Records"][0]["s3"]["object"]["key"]
 

@@ -26,20 +26,20 @@ const CollapsibleCard = ({ title, sub, icon, children, defaultOpen = true, badge
   return (
     <div style={{
       background: colors.card, border: `1px solid ${colors.cardBorder}`,
-      borderRadius: '16px', marginBottom: '24px', position: 'relative', overflow: 'hidden',
+      borderRadius: '12px', marginBottom: '16px', position: 'relative', overflow: 'hidden',
       transition: 'border-color 0.3s ease', ...cardStyleOverride,
     }}>
       <button onClick={() => setOpen(prev => !prev)} style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        width: '100%', padding: '22px 28px', paddingBottom: open ? '0px' : '22px',
+        width: '100%', padding: '16px 16px', paddingBottom: open ? '0px' : '16px',
         background: 'transparent', border: 'none', cursor: 'pointer', textAlign: 'left', outline: 'none',
         transition: 'padding-bottom 0.35s cubic-bezier(0.16, 1, 0.3, 1)',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, minWidth: 0 }}>
           {icon && <span style={{ fontSize: '18px', flexShrink: 0 }}>{icon}</span>}
           <div style={{ minWidth: 0 }}>
-            <h2 style={{ fontSize: '18px', fontWeight: 700, color: colors.text, margin: 0, letterSpacing: '-0.01em' }}>{title}</h2>
-            {sub && <p style={{ fontSize: '13px', color: colors.textDim, margin: '3px 0 0 0', lineHeight: 1.4, opacity: open ? 1 : 0.7, transition: 'opacity 0.3s ease', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{sub}</p>}
+            <h2 style={{ fontSize: '15px', fontWeight: 700, color: colors.text, margin: 0, letterSpacing: '-0.01em' }}>{title}</h2>
+            {sub && <p style={{ fontSize: '12px', color: colors.textDim, margin: '3px 0 0 0', lineHeight: 1.4, opacity: open ? 1 : 0.7, transition: 'opacity 0.3s ease' }}>{sub}</p>}
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0, marginLeft: '16px' }}>
@@ -52,7 +52,7 @@ const CollapsibleCard = ({ title, sub, icon, children, defaultOpen = true, badge
         </div>
       </button>
       <div style={{ maxHeight: open ? `${contentHeight + 40}px` : '0px', opacity: open ? 1 : 0, overflow: 'hidden', transition: 'max-height 0.45s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease' }}>
-        <div ref={contentRef} style={{ padding: '20px 28px 28px 28px' }}>{children}</div>
+        <div ref={contentRef} style={{ padding: '14px 16px 20px 16px' }}>{children}</div>
       </div>
     </div>
   );

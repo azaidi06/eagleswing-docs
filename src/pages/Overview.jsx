@@ -35,7 +35,7 @@ const Overview = () => {
   const [heroRef, heroInView] = useInView({ threshold: 0.1 });
 
   return (
-    <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '40px 24px' }}>
+    <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '24px 16px' }}>
       {/* Hero */}
       <div ref={heroRef} style={{
         textAlign: 'center', marginBottom: '40px',
@@ -99,7 +99,7 @@ const Overview = () => {
           rows={[
             ['ingest/', 'Lambda', 'Receives phone uploads, copies to pipeline S3 bucket'],
             ['label_videos/', 'EC2 GPU (spot)', 'NVENC transcode + ViTPose-Huge pose estimation'],
-            ['swing_detection/', 'Lambda', 'Signal processing on keypoints \u2192 backswing/contact detection'],
+            ['swing_detection/', 'Lambda', 'Signal processing on keypoints → backswing/contact detection'],
             ['hand_finder/', 'Lambda', 'Detects post-swing hand raises, predicts finger count'],
             ['post_processing/', 'Lambda', 'Extracts frames, generates overlays, sends notifications'],
             ['analyze/', 'Lambda/CLI/Streamlit', 'Biomechanical comparison, SPM analysis, AI insights'],
@@ -109,7 +109,7 @@ const Overview = () => {
 
       {/* Performance */}
       <CollapsibleCard title="Performance Summary" icon="&#9889;">
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '24px' }}>
           <div>
             <Table
               headers={['Stage', 'Time', 'Hardware']}

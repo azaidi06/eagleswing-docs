@@ -35,7 +35,7 @@ const PipelineFlow = () => {
   ];
 
   return (
-    <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '40px 24px' }}>
+    <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '24px 16px' }}>
       <div ref={headerRef} style={{
         marginBottom: '32px', opacity: headerInView ? 1 : 0,
         transform: headerInView ? 'translateY(0)' : 'translateY(16px)',
@@ -48,26 +48,26 @@ const PipelineFlow = () => {
       {/* S3 Layout */}
       <CollapsibleCard title="S3 Layout" sub="All data in golf-swing-data with golfer-first keys" icon="&#128193;">
         <CodeBlock>{`{golfer}/
-\u251c\u2500\u2500 raw/          # Original .MOV uploads (iPhone HEVC 10-bit VFR)
-\u251c\u2500\u2500 processed/    # Transcoded .mp4 (H.264 CFR yuv420p)
-\u251c\u2500\u2500 keypoints/    # ViTPose .pkl files (17 keypoints per frame)
-\u251c\u2500\u2500 detection/    # Swing detection .json (backswing + contact frames)
-\u251c\u2500\u2500 fingers/      # Finger prediction .json
-\u251c\u2500\u2500 frames/       # Extracted JPGs with skeleton overlay
-\u251c\u2500\u2500 output/       # Grids, signal plots, hand crops
-\u2514\u2500\u2500 analysis/     # Biomechanical comparison plots + AI text`}</CodeBlock>
+├── raw/          # Original .MOV uploads (iPhone HEVC 10-bit VFR)
+├── processed/    # Transcoded .mp4 (H.264 CFR yuv420p)
+├── keypoints/    # ViTPose .pkl files (17 keypoints per frame)
+├── detection/    # Swing detection .json (backswing + contact frames)
+├── fingers/      # Finger prediction .json
+├── frames/       # Extracted JPGs with skeleton overlay
+├── output/       # Grids, signal plots, hand crops
+└── analysis/     # Biomechanical comparison plots + AI text`}</CodeBlock>
       </CollapsibleCard>
 
       {/* Messaging */}
-      <CollapsibleCard title="Inter-Stage Messaging" sub="S3 event notifications \u2192 SQS, no orchestrator" icon="&#128172;">
+      <CollapsibleCard title="Inter-Stage Messaging" sub="S3 event notifications → SQS, no orchestrator" icon="&#128172;">
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
           {[
             { from: 'Phone', action: 'Upload .MOV to /raw/', color: colors.green },
-            { from: 'S3', action: 'S3 event (suffix .MOV/.mp4) \u2192 SQS', color: colors.green },
+            { from: 'S3', action: 'S3 event (suffix .MOV/.mp4) → SQS', color: colors.green },
             { from: 'EC2', action: 'worker.py polls SQS, uploads .mp4 + .pkl', color: colors.purple },
-            { from: 'S3', action: 'S3 event (suffix .pkl) \u2192 swing_detection Lambda', color: colors.amber },
+            { from: 'S3', action: 'S3 event (suffix .pkl) → swing_detection Lambda', color: colors.amber },
             { from: 'Lambda', action: 'Uploads .json to /detection/', color: colors.amber },
-            { from: 'S3', action: 'S3 event (suffix .json) \u2192 post_processing Lambda', color: colors.amber },
+            { from: 'S3', action: 'S3 event (suffix .json) → post_processing Lambda', color: colors.amber },
             { from: 'Lambda', action: 'Uploads to /fingers/, /frames/, /output/', color: colors.amber },
           ].map((step, i) => (
             <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 16px', borderRadius: '10px', background: `${step.color}06`, border: `1px solid ${step.color}15` }}>
@@ -84,7 +84,7 @@ const PipelineFlow = () => {
 
       {/* Path Guards */}
       <CollapsibleCard title="Path Guards & Idempotency" sub="Safety mechanisms in the label worker" icon="&#128274;">
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
           <div style={{ padding: '16px', borderRadius: '10px', background: `${colors.green}06`, border: `1px solid ${colors.green}15` }}>
             <div style={{ fontSize: '13px', fontWeight: 700, color: colors.green, marginBottom: '8px' }}>Path Guards</div>
             <p style={{ fontSize: '12px', color: colors.textMuted, lineHeight: 1.6, marginBottom: '10px' }}>Only processes keys matching <code style={{ color: colors.accent, background: `${colors.accent}15`, padding: '1px 6px', borderRadius: '4px', fontSize: '11px' }}>/raw/</code> or <code style={{ color: colors.accent, background: `${colors.accent}15`, padding: '1px 6px', borderRadius: '4px', fontSize: '11px' }}>/processed/</code></p>
@@ -106,7 +106,7 @@ if s3_object_exists(bucket, pkl_key):
 
       {/* Timing */}
       <CollapsibleCard title="Timing Breakdown" sub="5-min 60fps iPhone video (~18,000 frames)" icon="&#9201;">
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '24px' }}>
           <div>
             {timingData.map(item => (
               <BarItem key={item.label} {...item} maxValue={313} />
